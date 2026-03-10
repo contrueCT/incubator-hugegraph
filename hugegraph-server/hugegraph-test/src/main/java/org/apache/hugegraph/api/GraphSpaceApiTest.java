@@ -317,6 +317,9 @@ public class GraphSpaceApiTest extends BaseApiTest {
         r = this.client().delete(PATH, "nonexistent");
         content = assertResponseStatus(400, r);
         Assert.assertTrue(content.contains(standaloneError));
+    }
+
+    @Test
     public void testListProfile() {
         // Get profile list without prefix
         Response r = this.client().get(PATH + "/profile");
