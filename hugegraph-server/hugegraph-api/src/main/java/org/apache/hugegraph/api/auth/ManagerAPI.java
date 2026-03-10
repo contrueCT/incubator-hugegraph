@@ -65,6 +65,7 @@ public class ManagerAPI extends API {
                                 @PathParam("graphspace") String graphSpace,
                                 JsonManager jsonManager) {
         LOG.debug("Create manager: {}", jsonManager);
+        checkPdModeEnabled(manager);
         String user = jsonManager.user;
         HugePermission type = jsonManager.type;
         // graphSpace now comes from @PathParam instead of JsonManager
@@ -117,6 +118,7 @@ public class ManagerAPI extends API {
                        @QueryParam("user") String user,
                        @QueryParam("type") HugePermission type) {
         LOG.debug("Delete graph manager: {} {} {}", user, type, graphSpace);
+        checkPdModeEnabled(manager);
         E.checkArgument(!"admin".equals(user) ||
                         type != HugePermission.ADMIN,
                         "User 'admin' can't be removed from ADMIN");
@@ -160,7 +162,7 @@ public class ManagerAPI extends API {
                        @PathParam("graphspace") String graphSpace,
                        @QueryParam("type") HugePermission type) {
         LOG.debug("list graph manager: {} {}", type, graphSpace);
-
+        checkPdModeEnabled(manager);
         AuthManager authManager = manager.authManager();
         validType(type);
         List<String> adminManagers;
@@ -190,7 +192,7 @@ public class ManagerAPI extends API {
                             @PathParam("graphspace") String graphSpace,
                             @QueryParam("type") HugePermission type) {
         LOG.debug("check if current user is graph manager: {} {}", type, graphSpace);
-
+        checkPdModeEnabled(manager);
         validType(type);
         AuthManager authManager = manager.authManager();
         String user = HugeGraphAuthProxy.getContext().user().username();
@@ -222,6 +224,7 @@ public class ManagerAPI extends API {
                                @PathParam("graphspace") String graphSpace,
                                @QueryParam("user") String user) {
         LOG.debug("get user [{}]'s role in graph space [{}]", user, graphSpace);
+        checkPdModeEnabled(manager);
         AuthManager authManager = manager.authManager();
         List<HugePermission> result = new ArrayList<>();
         validGraphSpace(manager, graphSpace);

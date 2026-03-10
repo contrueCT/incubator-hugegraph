@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.hugegraph.util.JsonUtil;
+import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
@@ -274,5 +275,45 @@ public class GraphSpaceApiTest extends BaseApiTest {
 
         r = this.client().post(PATH, negativeLimitsBody);
         assertResponseStatus(400, r);
+    }
+
+    @Test
+    public void testStandaloneModeForbidsAllEndpoints() {
+        Assume.assumeFalse("skip this test for hstore (PD mode)",
+                           Objects.equals("hstore", System.getProperty("backend")));
+
+        final String standaloneError =
+                "GraphSpace management is not supported in standalone mode";
+
+        // list
+        Response r = this.client().get(PATH);
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // get
+        r = this.client().get(PATH, "DEFAULT");
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // create
+        String createBody = "{\"name\":\"test_standalone\",\"nickname\":\"test\","
+                            + "\"description\":\"test\",\"cpu_limit\":10,"
+                            + "\"memory_limit\":10,\"storage_limit\":10,"
+                            + "\"max_graph_number\":10,\"max_role_number\":10,"
+                            + "\"auth\":false,\"configs\":{}}";
+        r = this.client().post(PATH, createBody);
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // manage (update action)
+        String manageBody = "{\"action\":\"update\",\"update\":{\"name\":\"DEFAULT\"}}";
+        r = this.client().put(PATH, "DEFAULT", manageBody, Map.of());
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // delete
+        r = this.client().delete(PATH, "nonexistent");
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
     }
 }

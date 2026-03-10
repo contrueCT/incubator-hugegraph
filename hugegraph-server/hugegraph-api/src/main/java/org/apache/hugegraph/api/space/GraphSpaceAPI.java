@@ -71,6 +71,7 @@ public class GraphSpaceAPI extends API {
     @Produces(APPLICATION_JSON_WITH_CHARSET)
     public Object list(@Context GraphManager manager,
                        @Context SecurityContext sc) {
+        checkPdModeEnabled(manager);
         Set<String> spaces = manager.graphSpaces();
         return ImmutableMap.of("graphSpaces", spaces);
     }
@@ -81,6 +82,7 @@ public class GraphSpaceAPI extends API {
     @Produces(APPLICATION_JSON_WITH_CHARSET)
     public Object get(@Context GraphManager manager,
                       @PathParam("graphspace") String graphSpace) {
+        checkPdModeEnabled(manager);
         manager.getSpaceStorage(graphSpace);
         GraphSpace gs = space(manager, graphSpace);
 
@@ -101,7 +103,7 @@ public class GraphSpaceAPI extends API {
     @RolesAllowed({"admin"})
     public String create(@Context GraphManager manager,
                          JsonGraphSpace jsonGraphSpace) {
-
+        checkPdModeEnabled(manager);
         jsonGraphSpace.checkCreate(false);
 
         String creator = HugeGraphAuthProxy.getContext().user().username();
@@ -132,7 +134,7 @@ public class GraphSpaceAPI extends API {
     public Map<String, Object> manage(@Context GraphManager manager,
                                       @PathParam("name") String name,
                                       Map<String, Object> actionMap) {
-
+        checkPdModeEnabled(manager);
         E.checkArgument(actionMap != null && actionMap.size() == 2 &&
                         actionMap.containsKey(GRAPH_SPACE_ACTION),
                         "Invalid request body '%s'", actionMap);
@@ -261,6 +263,7 @@ public class GraphSpaceAPI extends API {
     @RolesAllowed({"admin"})
     public void delete(@Context GraphManager manager,
                        @PathParam("name") String name) {
+        checkPdModeEnabled(manager);
         manager.dropGraphSpace(name);
     }
 

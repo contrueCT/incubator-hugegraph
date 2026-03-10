@@ -280,6 +280,10 @@ public final class GraphManager {
         return this.PDExist;
     }
 
+    public boolean isUsePD() {
+        return this.PDExist;
+    }
+
     private static void registerCacheMetrics(Map<String, Cache<?, ?>> caches) {
         Set<String> names = MetricManager.INSTANCE.getRegistry().getNames();
         for (Map.Entry<String, Cache<?, ?>> entry : caches.entrySet()) {

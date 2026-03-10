@@ -241,6 +241,13 @@ public class API {
         }
     }
 
+    public static void checkPdModeEnabled(GraphManager manager) {
+        if (!manager.isUsePD()) {
+            throw new HugeException(
+                    "GraphSpace management is not supported in standalone mode");
+        }
+    }
+
     public static boolean hasAdminPerm(GraphManager manager, String user) {
         return manager.authManager().isAdminManager(user);
     }

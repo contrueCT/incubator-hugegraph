@@ -981,4 +981,45 @@ public class ManagerApiTest extends BaseApiTest {
         Assert.assertTrue("Only graphb1 should remain in spaceb",
                           graphsList.contains("graphb1") && !graphsList.contains("graphb2"));
     }
+
+    @Test
+    public void testStandaloneModeForbidsAllEndpoints() {
+        Assume.assumeFalse("skip this test for hstore (PD mode)",
+                           Objects.equals("hstore", System.getProperty("backend")));
+
+        final String standaloneError =
+                "GraphSpace management is not supported in standalone mode";
+        final String path = managerPath("DEFAULT");
+
+        // createManager
+        String createBody = "{\"user\":\"admin\",\"type\":\"ADMIN\"}";
+        Response r = this.client().post(path, createBody);
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // delete (via query params)
+        r = this.client().delete(path,
+                                 ImmutableMap.of("user", "admin",
+                                                 "type", HugePermission.ADMIN));
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // list
+        r = this.client().get(path,
+                              ImmutableMap.of("type", (Object) HugePermission.ADMIN));
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // checkRole
+        r = this.client().get(path + "/check",
+                              ImmutableMap.of("type", (Object) HugePermission.ADMIN));
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+
+        // getRolesInGs
+        r = this.client().get(path + "/role",
+                              ImmutableMap.of("user", (Object) "admin"));
+        content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(standaloneError));
+    }
 }
