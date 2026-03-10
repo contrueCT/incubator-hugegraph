@@ -18,11 +18,9 @@
 package org.apache.hugegraph.api;
 
 import java.util.Map;
-import java.util.Objects;
 
 import org.apache.hugegraph.auth.HugePermission;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -46,8 +44,7 @@ public class ManagerApiStandaloneTest extends BaseApiTest {
 
     @Before
     public void skipForPdMode() {
-        Assume.assumeFalse("skip standalone tests when running against hstore (PD mode)",
-                           Objects.equals("hstore", System.getProperty("backend")));
+        assumeStandaloneMode();
     }
 
     @Test
