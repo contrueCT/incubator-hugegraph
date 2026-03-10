@@ -74,7 +74,7 @@ public class ManagerAPI extends API {
         AuthManager authManager = manager.authManager();
         validUser(authManager, user);
 
-        String creator = HugeGraphAuthProxy.getContext().user().username();
+        String creator = HugeGraphAuthProxy.username();
         switch (type) {
             case SPACE:
                 validGraphSpace(manager, graphSpace);
@@ -126,7 +126,7 @@ public class ManagerAPI extends API {
         AuthManager authManager = manager.authManager();
         validType(type);
         validUser(authManager, user);
-        String actionUser = HugeGraphAuthProxy.getContext().user().username();
+        String actionUser = HugeGraphAuthProxy.username();
 
         switch (type) {
             case SPACE:
@@ -195,7 +195,7 @@ public class ManagerAPI extends API {
         checkPdModeEnabled(manager);
         validType(type);
         AuthManager authManager = manager.authManager();
-        String user = HugeGraphAuthProxy.getContext().user().username();
+        String user = HugeGraphAuthProxy.username();
 
         boolean result;
         switch (type) {
