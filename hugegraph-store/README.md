@@ -109,7 +109,7 @@ mvn clean package -pl hugegraph-store/hugegraph-store-dist -am -DskipTests
 
 The assembled distribution will be available at:
 ```
-hugegraph-store/apache-hugegraph-store-1.7.0/lib/hg-store-node-1.7.0.jar```
+hugegraph-store/apache-hugegraph-store-1.7.0/lib/hg-store-node-1.7.0.jar
 ```
 
 ### Configuration
