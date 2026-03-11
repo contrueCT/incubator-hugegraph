@@ -276,11 +276,7 @@ public final class GraphManager {
                      .replace("_", "-").toLowerCase();
     }
 
-    private boolean usePD() {
-        return this.PDExist;
-    }
-
-    public boolean isUsePD() {
+    public boolean usePD() {
         return this.PDExist;
     }
 

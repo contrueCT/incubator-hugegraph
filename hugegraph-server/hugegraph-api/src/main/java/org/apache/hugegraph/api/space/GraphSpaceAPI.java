@@ -108,6 +108,7 @@ public class GraphSpaceAPI extends API {
     public Object listProfile(@Context GraphManager manager,
                               @QueryParam("prefix") String prefix,
                               @Context SecurityContext sc) {
+        checkPdModeEnabled(manager);
         Set<String> spaces = manager.graphSpaces();
         List<Map<String, Object>> spaceList = new ArrayList<>();
         List<Map<String, Object>> result = new ArrayList<>();

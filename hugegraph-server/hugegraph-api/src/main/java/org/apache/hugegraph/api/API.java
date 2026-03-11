@@ -242,7 +242,7 @@ public class API {
     }
 
     public static void checkPdModeEnabled(GraphManager manager) {
-        if (!manager.isUsePD()) {
+        if (!manager.usePD()) {
             throw new HugeException(
                     "GraphSpace management is not supported in standalone mode");
         }

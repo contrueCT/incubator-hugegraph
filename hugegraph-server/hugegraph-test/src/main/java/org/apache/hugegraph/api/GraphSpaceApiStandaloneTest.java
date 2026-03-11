@@ -17,7 +17,7 @@
 
 package org.apache.hugegraph.api;
 
-import java.util.Map;
+import com.google.common.collect.ImmutableMap;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -41,6 +41,13 @@ public class GraphSpaceApiStandaloneTest extends BaseApiTest {
     @Before
     public void skipForPdMode() {
         assumeStandaloneMode();
+    }
+
+    @Test
+    public void testProfileReturnsFriendlyError() {
+        Response r = this.client().get(PATH + "/profile");
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(STANDALONE_ERROR));
     }
 
     @Test
@@ -72,7 +79,7 @@ public class GraphSpaceApiStandaloneTest extends BaseApiTest {
     @Test
     public void testManageReturnsFriendlyError() {
         String body = "{\"action\":\"update\",\"update\":{\"name\":\"DEFAULT\"}}";
-        Response r = this.client().put(PATH, "DEFAULT", body, Map.of());
+        Response r = this.client().put(PATH, "DEFAULT", body, ImmutableMap.of());
         String content = assertResponseStatus(400, r);
         Assert.assertTrue(content.contains(STANDALONE_ERROR));
     }
