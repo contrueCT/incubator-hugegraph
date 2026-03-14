@@ -373,7 +373,7 @@ public class BaseApiTest {
     }
 
     protected static Response createAndAssert(String path, String body,
-            int status) {
+                                              int status) {
         Response r = client.post(path, body);
         assertResponseStatus(status, r);
         return r;
@@ -388,18 +388,18 @@ public class BaseApiTest {
 
         Map<String, String> vertexName2Ids = new HashMap<>();
         for (Map vertex : vertices) {
-            Map properties = (Map)vertex.get("properties");
+            Map properties = (Map) vertex.get("properties");
             if (properties == null ||
                 !properties.containsKey("name") ||
                 !vertex.containsKey("id")) {
                 continue;
             }
-            String name = (String)properties.get("name");
+            String name = (String) properties.get("name");
             if (TextUtils.isEmpty(name)) {
                 continue;
             }
 
-            String id = (String)vertex.get("id");
+            String id = (String) vertex.get("id");
             if (TextUtils.isEmpty(id)) {
                 continue;
             }
@@ -429,7 +429,7 @@ public class BaseApiTest {
         if (list.size() != 1) {
             throw new HugeException("Failed to get vertex id: %s", content);
         }
-        return (String)list.get(0).get("id");
+        return (String) list.get(0).get("id");
     }
 
     protected static void clearGraph() {
@@ -443,7 +443,7 @@ public class BaseApiTest {
             List<Object> ids = list.stream().map(e -> e.get("id"))
                                    .collect(Collectors.toList());
             ids.forEach(id -> {
-                client.delete(path, (String)id);
+                client.delete(path, (String) id);
             });
         };
 
@@ -465,7 +465,7 @@ public class BaseApiTest {
                               CollectionUtil.allUnique(names));
             Set<Integer> tasks = new HashSet<>();
             names.forEach(name -> {
-                Response response = client.delete(path, (String)name);
+                Response response = client.delete(path, (String) name);
                 if (urlSuffix.equals(SCHEMA_PKS)) {
                     return;
                 }
@@ -510,20 +510,19 @@ public class BaseApiTest {
                 // isn't hstore
                 BaseApiTest.clearData();
             }
-        }
-        else {
+        } else {
             BaseApiTest.clearData();
         }
     }
 
     protected static String parseId(String content) throws IOException {
         Map<?, ?> map = MAPPER.readValue(content, Map.class);
-        return (String)map.get("id");
+        return (String) map.get("id");
     }
 
     protected static <T> List<T> readList(String content,
-            String key,
-            Class<T> clazz) {
+                                          String key,
+                                          Class<T> clazz) {
         try {
             JsonNode root = MAPPER.readTree(content);
             JsonNode element = root.get(key);
@@ -534,15 +533,14 @@ public class BaseApiTest {
             JavaType type = MAPPER.getTypeFactory()
                                   .constructParametricType(List.class, clazz);
             return MAPPER.readValue(element.toString(), type);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new HugeException(String.format(
                     "Failed to deserialize %s", content), e);
         }
     }
 
     protected static String assertErrorContains(Response response,
-            String message) {
+                                                String message) {
         Assert.assertNotEquals("Fail to assert request failed", 200,
                                response.getStatus());
         String content = response.readEntity(String.class);
@@ -566,7 +564,7 @@ public class BaseApiTest {
     }
 
     protected static String assertResponseStatus(int status,
-            Response response) {
+                                                 Response response) {
         String content = response.readEntity(String.class);
         String message = String.format("Response with status %s and content %s",
                                        response.getStatus(), content);
@@ -589,7 +587,7 @@ public class BaseApiTest {
             if (user.get("user_name").equals("admin")) {
                 continue;
             }
-            client.delete(path, (String)user.get("id"));
+            client.delete(path, (String) user.get("id"));
         }
     }
 
@@ -603,11 +601,11 @@ public class BaseApiTest {
         String message = String.format("Expect contains key '%s' in %s",
                                        key, map);
         Assert.assertTrue(message, map.containsKey(key));
-        return (T)map.get(key);
+        return (T) map.get(key);
     }
 
     public static Map<?, ?> assertArrayContains(List<Map<?, ?>> list,
-            String key, Object value) {
+                                                String key, Object value) {
         String message = String.format("Expect contains {'%s':'%s'} in list %s",
                                        key, value, list);
         Map<?, ?> found = null;
@@ -651,7 +649,7 @@ public class BaseApiTest {
         Response r = client.get("graphspaces");
         String result = r.readEntity(String.class);
         Map<String, Object> resultMap = JsonUtil.fromJson(result, Map.class);
-        List<String> spaces = (List<String>)resultMap.get("graphSpaces");
+        List<String> spaces = (List<String>) resultMap.get("graphSpaces");
         for (String space : spaces) {
             if (!"DEFAULT".equals(space)) {
                 client.delete("graphspaces", space);
@@ -668,14 +666,14 @@ public class BaseApiTest {
     }
 
     public static Response createGraphInRocksDB(String graphSpace, String name,
-            String nickname) {
+                                                String nickname) {
         String path = String.format("graphspaces/%s/graphs/%s", graphSpace, name);
         String config = String.format(ROCKSDB_CONFIG_TEMPLATE, name, nickname, name, name);
         return client.post(path, Entity.json(config));
     }
 
     public static Response createGraph(String graphSpace, String name,
-            String nickname) {
+                                       String nickname) {
         String config = "{\n" +
                         "  \"backend\": \"hstore\",\n" +
                         "  \"serializer\": \"binary\",\n" +
@@ -690,7 +688,7 @@ public class BaseApiTest {
     }
 
     public static Response updateGraph(String action, String graphSpace,
-            String name, String nickname) {
+                                       String name, String nickname) {
         String body = "{\n" +
                       "  \"action\": \"%s\",\n" +
                       "  \"update\": {\n" +
@@ -716,7 +714,7 @@ public class BaseApiTest {
     }
 
     public static RestClient spaceManagerClient(String graphSpace,
-            String username) {
+                                                String username) {
         RestClient spaceClient = userClient(username);
 
         String spaceBody = "{\n" +
@@ -840,7 +838,7 @@ public class BaseApiTest {
         }
 
         public Response put(String path, String id, String content,
-                Map<String, Object> params) {
+                            Map<String, Object> params) {
             WebTarget target = this.target.path(path).path(id);
             for (Map.Entry<String, Object> i : params.entrySet()) {
                 target = target.queryParam(i.getKey(), i.getValue());
@@ -861,7 +859,7 @@ public class BaseApiTest {
         }
 
         public Response delete(String path,
-                MultivaluedMap<String, Object> headers) {
+                               MultivaluedMap<String, Object> headers) {
             WebTarget target = this.target.path(path);
             return target.request().headers(headers).delete();
         }
