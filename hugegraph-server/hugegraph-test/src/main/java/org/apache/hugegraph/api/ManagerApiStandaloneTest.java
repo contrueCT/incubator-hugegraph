@@ -87,4 +87,45 @@ public class ManagerApiStandaloneTest extends BaseApiTest {
         String content = assertResponseStatus(400, r);
         Assert.assertTrue(content.contains(STANDALONE_ERROR));
     }
+
+    @Test
+    public void testCreateSpaceManagerReturnsFriendlyError() {
+        String body = "{\"user\":\"admin\",\"type\":\"SPACE\"}";
+        Response r = this.client().post(managerPath("nonexistent"), body);
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(STANDALONE_ERROR));
+    }
+
+    @Test
+    public void testDeleteSpaceManagerReturnsFriendlyError() {
+        Response r = this.client().delete(managerPath("nonexistent"),
+                                          Map.of("user", "admin",
+                                                 "type", HugePermission.SPACE));
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(STANDALONE_ERROR));
+    }
+
+    @Test
+    public void testListSpaceManagerReturnsFriendlyError() {
+        Response r = this.client().get(managerPath("nonexistent"),
+                                       Map.of("type", (Object) HugePermission.SPACE));
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(STANDALONE_ERROR));
+    }
+
+    @Test
+    public void testCheckRoleSpaceReturnsFriendlyError() {
+        Response r = this.client().get(managerPath("nonexistent") + "/check",
+                                       Map.of("type", (Object) HugePermission.SPACE));
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(STANDALONE_ERROR));
+    }
+
+    @Test
+    public void testGetRolesInGsNonExistentReturnsFriendlyError() {
+        Response r = this.client().get(managerPath("nonexistent") + "/role",
+                                       Map.of("user", (Object) "admin"));
+        String content = assertResponseStatus(400, r);
+        Assert.assertTrue(content.contains(STANDALONE_ERROR));
+    }
 }
