@@ -322,9 +322,11 @@ public class ManagerApiTest extends BaseApiTest {
         Response r = this.client().get(userPath, ImmutableMap.of("limit", NO_LIMIT));
         String result = assertResponseStatus(200, r);
 
+        TypeReference<Map<String, List<Map<String, Object>>>> typeRef =
+                new TypeReference<Map<String, List<Map<String, Object>>>>() {
+                };
         Map<String, List<Map<String, Object>>> resultMap = JsonUtil.fromJson(result,
-                                                                             new TypeReference<Map<String, List<Map<String, Object>>>>() {
-                                                                             });
+                                                                             typeRef);
         return resultMap.get("users");
     }
 
