@@ -747,9 +747,8 @@ public class BaseApiTest {
      */
     public static void assumeStandaloneMode() {
         String backend = System.getProperty("backend");
-        Assume.assumeTrue(
-                "skip standalone tests: backend is '" + backend + "' (hstore/PD mode)",
-                backend != null && !backend.equals("hstore"));
+        boolean isPdMode = backend == null || "hstore".equals(backend);
+        Assume.assumeFalse("Skip in PD/distributed mode", isPdMode);
     }
 
     @After

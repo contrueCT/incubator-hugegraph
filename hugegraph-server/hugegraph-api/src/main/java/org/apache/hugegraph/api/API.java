@@ -86,6 +86,8 @@ public class API {
             MetricsUtil.registerMeter(API.class, "expected-error");
     private static final Meter unknownErrorMeter =
             MetricsUtil.registerMeter(API.class, "unknown-error");
+    private static final String STANDALONE_ERROR =
+            "GraphSpace management is not supported in standalone mode";
 
     public static HugeGraph graph(GraphManager manager, String graphSpace,
                                   String graph) {
@@ -241,10 +243,17 @@ public class API {
         }
     }
 
-    public static void checkPdModeEnabled(GraphManager manager) {
-        if (!manager.usePD()) {
-            throw new HugeException(
-                    "GraphSpace management is not supported in standalone mode");
+    /**
+     * Ensures the graph manager is available and PD mode is enabled.
+     *
+     * @param manager the graph manager of current request
+     * @throws IllegalArgumentException if the graph manager is null
+     * @throws HugeException if PD mode is disabled
+     */
+    protected static void ensurePdModeEnabled(GraphManager manager) {
+        E.checkArgumentNotNull(manager, "Graph manager can't be null");
+        if (!manager.isPDEnable()) {
+            throw new HugeException(STANDALONE_ERROR);
         }
     }
 
