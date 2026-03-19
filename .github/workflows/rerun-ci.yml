@@ -1,0 +1,35 @@
+name: "Rerun CI"
+
+on:
+  workflow_run:
+    workflows:
+      - "HugeGraph-Server CI"
+      - "HugeGraph-Commons CI"
+      - "HugeGraph-PD & Store & Hstore CI"
+      - "Cluster Test CI"
+    types:
+      - completed
+
+permissions:
+  actions: write
+
+jobs:
+  rerun-failed-jobs:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      fromJSON(github.event.workflow_run.run_attempt) < 2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show rerun target
+        run: |
+          echo "Workflow: ${{ github.event.workflow_run.name }}"
+          echo "Run ID: ${{ github.event.workflow_run.id }}"
+          echo "Run attempt: ${{ github.event.workflow_run.run_attempt }}"
+          echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+
+      - name: Rerun failed jobs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh run rerun ${{ github.event.workflow_run.id }} --failed
