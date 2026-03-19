@@ -252,7 +252,7 @@ public class API {
      */
     protected static void ensurePdModeEnabled(GraphManager manager) {
         E.checkArgumentNotNull(manager, "Graph manager can't be null");
-        if (!manager.isPDEnable()) {
+        if (!manager.isPDEnabled()) {
             throw new HugeException(STANDALONE_ERROR);
         }
     }
