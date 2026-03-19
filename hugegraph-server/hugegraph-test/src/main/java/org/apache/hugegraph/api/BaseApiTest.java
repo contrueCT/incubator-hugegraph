@@ -740,15 +740,18 @@ public class BaseApiTest {
     }
 
     /**
-     * Skips the current test if the server is running in hstore / PD mode.
-     * Treats both {@code "hstore"} and {@code null} (i.e. the property is not
-     * set, which is the default in hstore CI runs) as PD mode.
+     * Skips the current test when the server backend is not known to be in
+     * standalone mode. Treats both {@code "hstore"} and {@code null}
+     * (i.e. the backend property is not provided/unknown) as PD/distributed
+     * mode and skips the test for safety.
      * Call this from a {@code @Before} method in standalone-only test classes.
      */
     public static void assumeStandaloneMode() {
         String backend = System.getProperty("backend");
         boolean isPdMode = backend == null || "hstore".equals(backend);
-        Assume.assumeFalse("Skip in PD/distributed mode", isPdMode);
+        Assume.assumeFalse(
+                "Skip when backend is hstore (PD/distributed) or not specified",
+                isPdMode);
     }
 
     @After

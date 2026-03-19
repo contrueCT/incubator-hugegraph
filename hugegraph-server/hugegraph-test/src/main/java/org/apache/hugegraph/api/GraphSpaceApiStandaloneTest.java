@@ -35,8 +35,6 @@ import jakarta.ws.rs.core.Response;
 public class GraphSpaceApiStandaloneTest extends BaseApiTest {
 
     private static final String PATH = "graphspaces";
-    private static final String STANDALONE_ERROR =
-            "GraphSpace management is not supported in standalone mode";
 
     @Before
     public void skipForPdMode() {
