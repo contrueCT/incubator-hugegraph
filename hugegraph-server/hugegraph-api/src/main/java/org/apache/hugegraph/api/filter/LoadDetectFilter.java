@@ -63,6 +63,20 @@ public class LoadDetectFilter implements ContainerRequestFilter {
     @Context
     private jakarta.inject.Provider<WorkLoad> loadProvider;
 
+    public static boolean isWhiteAPI(ContainerRequestContext context) {
+        List<PathSegment> segments = context.getUriInfo().getPathSegments();
+        E.checkArgument(!segments.isEmpty(), "Invalid request uri '%s'",
+                        context.getUriInfo().getPath());
+        String rootPath = segments.get(0).getPath();
+        return WHITE_API_LIST.contains(rootPath);
+    }
+
+    private static void gcIfNeeded() {
+        if (GC_RATE_LIMITER.tryAcquire(1)) {
+            System.gc();
+        }
+    }
+
     @Override
     public void filter(ContainerRequestContext context) {
         if (LoadDetectFilter.isWhiteAPI(context)) {
@@ -103,20 +117,6 @@ public class LoadDetectFilter implements ContainerRequestFilter {
                     "you can config %s to adjust it or try again later",
                     presumableFreeMem, minFreeMemory,
                     ServerOptions.MIN_FREE_MEMORY.name()));
-        }
-    }
-
-    public static boolean isWhiteAPI(ContainerRequestContext context) {
-        List<PathSegment> segments = context.getUriInfo().getPathSegments();
-        E.checkArgument(!segments.isEmpty(), "Invalid request uri '%s'",
-                        context.getUriInfo().getPath());
-        String rootPath = segments.get(0).getPath();
-        return WHITE_API_LIST.contains(rootPath);
-    }
-
-    private static void gcIfNeeded() {
-        if (GC_RATE_LIMITER.tryAcquire(1)) {
-            System.gc();
         }
     }
 }
