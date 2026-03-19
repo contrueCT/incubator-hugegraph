@@ -35,9 +35,6 @@ import jakarta.ws.rs.core.Response;
  */
 public class ManagerApiStandaloneTest extends BaseApiTest {
 
-    private static final String STANDALONE_ERROR =
-            "GraphSpace management is not supported in standalone mode";
-
     private static String managerPath(String graphSpace) {
         return String.format("graphspaces/%s/auth/managers", graphSpace);
     }

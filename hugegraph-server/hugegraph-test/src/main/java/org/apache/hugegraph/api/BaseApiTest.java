@@ -74,6 +74,8 @@ public class BaseApiTest {
     private static final String GRAPH_VERTEX = "/graph/vertices";
     private static final String GRAPH_EDGE = "/graph/edges";
     private static final String BATCH = "/batch";
+    static final String STANDALONE_ERROR =
+            "GraphSpace management is not supported in standalone mode";
 
     private static final String ROCKSDB_CONFIG_TEMPLATE =
             "{ \"gremlin.graph\": \"org.apache.hugegraph.HugeFactory\"," +
