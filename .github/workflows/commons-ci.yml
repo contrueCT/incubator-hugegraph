@@ -27,6 +27,12 @@ jobs:
           java-version: ${{ matrix.JAVA_VERSION }}
           distribution: 'zulu'
 
+      - name: Inject failure for rerun verification
+        if: ${{ github.event_name == 'pull_request' && github.head_ref == 'test/rerun-ci-pr' }}
+        run: |
+          echo "Intentional failure for rerun verification on test/rerun-ci-pr"
+          exit 1
+
       - name: Cache Maven packages
         uses: actions/cache@v3
         with:
