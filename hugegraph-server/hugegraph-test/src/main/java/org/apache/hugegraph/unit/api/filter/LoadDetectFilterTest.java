@@ -27,6 +27,7 @@ import org.apache.hugegraph.config.HugeConfig;
 import org.apache.hugegraph.config.ServerOptions;
 import org.apache.hugegraph.define.WorkLoad;
 import org.apache.hugegraph.testutil.Assert;
+import org.apache.hugegraph.testutil.Whitebox;
 import org.apache.hugegraph.unit.BaseUnitTest;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,9 +56,8 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         Mockito.when(this.requestContext.getMethod()).thenReturn("GET");
 
         this.loadDetectFilter = new LoadDetectFilter();
-        injectProvider(this.loadDetectFilter, "loadProvider", () -> this.workLoad);
-        injectProvider(this.loadDetectFilter, "configProvider",
-                       () -> createConfig(8, 0));
+        this.setLoadProvider(this.workLoad);
+        this.setConfigProvider(createConfig(8, 0));
     }
 
     @Test
@@ -74,8 +74,7 @@ public class LoadDetectFilterTest extends BaseUnitTest {
     public void testFilter_RejectsWhenWorkerLoadIsTooHigh() {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
-        injectProvider(this.loadDetectFilter, "configProvider",
-                       () -> createConfig(2, 0));
+        this.setConfigProvider(createConfig(2, 0));
         this.workLoad.incrementAndGet();
 
         ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
@@ -92,8 +91,7 @@ public class LoadDetectFilterTest extends BaseUnitTest {
     public void testFilter_RejectsWhenFreeMemoryIsTooLow() {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
-        injectProvider(this.loadDetectFilter, "configProvider",
-                       () -> createConfig(8, Integer.MAX_VALUE));
+        this.setConfigProvider(createConfig(8, Integer.MAX_VALUE));
 
         ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
                 ServiceUnavailableException.class,
@@ -109,8 +107,7 @@ public class LoadDetectFilterTest extends BaseUnitTest {
     public void testFilter_AllowsRequestWhenLoadAndMemoryAreHealthy() {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
-        injectProvider(this.loadDetectFilter, "configProvider",
-                       () -> createConfig(8, 0));
+        this.setConfigProvider(createConfig(8, 0));
 
         this.loadDetectFilter.filter(this.requestContext);
 
@@ -138,14 +135,13 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         return segment;
     }
 
-    private <T> void injectProvider(LoadDetectFilter filter, String fieldName,
-                                    Provider<T> provider) {
-        try {
-            java.lang.reflect.Field field = LoadDetectFilter.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(filter, provider);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject provider: " + fieldName, e);
-        }
+    private void setLoadProvider(WorkLoad workLoad) {
+        Whitebox.setInternalState(this.loadDetectFilter, "loadProvider",
+                                  (Provider<WorkLoad>) () -> workLoad);
+    }
+
+    private void setConfigProvider(HugeConfig config) {
+        Whitebox.setInternalState(this.loadDetectFilter, "configProvider",
+                                  (Provider<HugeConfig>) () -> config);
     }
 }

@@ -58,6 +58,9 @@ public class LoadDetectFilter implements ContainerRequestFilter {
     private static final RateLimiter GC_RATE_LIMITER =
             RateLimiter.create(1.0 / 30);
 
+    // Log at most 1 request per second to avoid too many logs when server is under heavy load
+    private static final RateLimiter REJECT_LOG_RATE_LIMITER = RateLimiter.create(1.0);
+
     @Context
     private jakarta.inject.Provider<HugeConfig> configProvider;
     @Context
@@ -71,10 +74,12 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         return WHITE_API_LIST.contains(rootPath);
     }
 
-    private static void gcIfNeeded() {
+    private static boolean gcIfNeeded() {
         if (GC_RATE_LIMITER.tryAcquire(1)) {
             System.gc();
+            return true;
         }
+        return false;
     }
 
     @Override
@@ -90,10 +95,12 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         // There will be a thread doesn't work, dedicated to statistics
         int currentLoad = load.incrementAndGet();
         if (currentLoad >= maxWorkerThreads) {
-            LOG.warn("Rejected request due to high worker load, method={}, path={}, " +
-                     "currentLoad={}, maxWorkerThreads={}",
-                     context.getMethod(), context.getUriInfo().getPath(),
-                     currentLoad, maxWorkerThreads);
+            if (REJECT_LOG_RATE_LIMITER.tryAcquire()) {
+                LOG.warn("Rejected request due to high worker load, method={}, path={}, " +
+                         "currentLoad={}, maxWorkerThreads={}",
+                         context.getMethod(), context.getUriInfo().getPath(),
+                         currentLoad, maxWorkerThreads);
+            }
             throw new ServiceUnavailableException(String.format(
                     "The server is too busy to process the request, " +
                     "you can config %s to adjust it or try again later",
@@ -106,11 +113,17 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         long presumableFreeMem = (Runtime.getRuntime().maxMemory() -
                                   allocatedMem) / Bytes.MB;
         if (presumableFreeMem < minFreeMemory) {
-            gcIfNeeded();
+            boolean gcTriggered = gcIfNeeded();
+            long allocatedMemAfterCheck = Runtime.getRuntime().totalMemory() -
+                                          Runtime.getRuntime().freeMemory();
+            long recheckedFreeMem = (Runtime.getRuntime().maxMemory() -
+                                     allocatedMemAfterCheck) / Bytes.MB;
             LOG.warn("Rejected request due to low free memory, method={}, path={}, " +
-                     "presumableFreeMemMB={}, minFreeMemoryMB={}",
+                     "presumableFreeMemMB={}, recheckedFreeMemMB={}, gcTriggered={}, " +
+                     "minFreeMemoryMB={}",
                      context.getMethod(), context.getUriInfo().getPath(),
-                     presumableFreeMem, minFreeMemory);
+                     presumableFreeMem, recheckedFreeMem, gcTriggered,
+                     minFreeMemory);
             throw new ServiceUnavailableException(String.format(
                     "The server available memory %s(MB) is below than " +
                     "threshold %s(MB) and can't process the request, " +
