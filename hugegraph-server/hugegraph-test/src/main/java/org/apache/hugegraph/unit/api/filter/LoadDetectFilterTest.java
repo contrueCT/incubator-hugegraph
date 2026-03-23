@@ -17,6 +17,10 @@
 
 package org.apache.hugegraph.unit.api.filter;
 
+import java.io.Serializable;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +33,15 @@ import org.apache.hugegraph.define.WorkLoad;
 import org.apache.hugegraph.testutil.Assert;
 import org.apache.hugegraph.testutil.Whitebox;
 import org.apache.hugegraph.unit.BaseUnitTest;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Filter;
+import org.apache.logging.log4j.core.Layout;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -41,23 +54,36 @@ import jakarta.ws.rs.core.UriInfo;
 
 public class LoadDetectFilterTest extends BaseUnitTest {
 
+    private static final Logger TEST_LOGGER =
+            (Logger) LogManager.getLogger(LoadDetectFilter.class);
+
     private LoadDetectFilter loadDetectFilter;
     private ContainerRequestContext requestContext;
     private UriInfo uriInfo;
     private WorkLoad workLoad;
+    private TestAppender testAppender;
 
     @Before
     public void setup() {
         this.requestContext = Mockito.mock(ContainerRequestContext.class);
         this.uriInfo = Mockito.mock(UriInfo.class);
         this.workLoad = new WorkLoad();
+        this.testAppender = new TestAppender();
+        this.testAppender.start();
+        TEST_LOGGER.addAppender(this.testAppender);
 
         Mockito.when(this.requestContext.getUriInfo()).thenReturn(this.uriInfo);
         Mockito.when(this.requestContext.getMethod()).thenReturn("GET");
 
-        this.loadDetectFilter = new LoadDetectFilter();
+        this.loadDetectFilter = new TestLoadDetectFilter();
         this.setLoadProvider(this.workLoad);
         this.setConfigProvider(createConfig(8, 0));
+    }
+
+    @After
+    public void teardown() {
+        TEST_LOGGER.removeAppender(this.testAppender);
+        this.testAppender.stop();
     }
 
     @Test
@@ -68,6 +94,7 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         this.loadDetectFilter.filter(this.requestContext);
 
         Assert.assertEquals(1, this.workLoad.get().get());
+        Assert.assertTrue(this.testAppender.events().isEmpty());
     }
 
     @Test
@@ -85,6 +112,11 @@ public class LoadDetectFilterTest extends BaseUnitTest {
                               exception.getMessage());
         Assert.assertContains(ServerOptions.MAX_WORKER_THREADS.name(),
                               exception.getMessage());
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Rejected request due to high worker load");
+        this.assertWarnLogContains("method=GET");
+        this.assertWarnLogContains("path=graphs/hugegraph/vertices");
+        this.assertWarnLogContains("currentLoad=2");
     }
 
     @Test
@@ -92,6 +124,7 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
         this.setConfigProvider(createConfig(8, Integer.MAX_VALUE));
+        this.setGcTriggered(false);
 
         ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
                 ServiceUnavailableException.class,
@@ -101,6 +134,11 @@ public class LoadDetectFilterTest extends BaseUnitTest {
                               exception.getMessage());
         Assert.assertContains(ServerOptions.MIN_FREE_MEMORY.name(),
                               exception.getMessage());
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Rejected request due to low free memory");
+        this.assertWarnLogContains("method=GET");
+        this.assertWarnLogContains("path=graphs/hugegraph/vertices");
+        this.assertWarnLogContains("gcTriggered=false");
     }
 
     @Test
@@ -112,6 +150,26 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         this.loadDetectFilter.filter(this.requestContext);
 
         Assert.assertEquals(1, this.workLoad.get().get());
+        Assert.assertTrue(this.testAppender.events().isEmpty());
+    }
+
+    @Test
+    public void testFilter_RejectLogIsRateLimited() {
+        setupPath("graphs/hugegraph/vertices",
+                  List.of("graphs", "hugegraph", "vertices"));
+        this.setConfigProvider(createConfig(2, 0));
+        this.setAllowRejectLogs(true, false);
+
+        this.workLoad.incrementAndGet();
+        Assert.assertThrows(ServiceUnavailableException.class,
+                            () -> this.loadDetectFilter.filter(this.requestContext));
+
+        this.workLoad.get().set(1);
+        Assert.assertThrows(ServiceUnavailableException.class,
+                            () -> this.loadDetectFilter.filter(this.requestContext));
+
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Rejected request due to high worker load");
     }
 
     private HugeConfig createConfig(int maxWorkerThreads, int minFreeMemory) {
@@ -143,5 +201,72 @@ public class LoadDetectFilterTest extends BaseUnitTest {
     private void setConfigProvider(HugeConfig config) {
         Whitebox.setInternalState(this.loadDetectFilter, "configProvider",
                                   (Provider<HugeConfig>) () -> config);
+    }
+
+    private void setGcTriggered(boolean gcTriggered) {
+        ((TestLoadDetectFilter) this.loadDetectFilter).gcTriggered(gcTriggered);
+    }
+
+    private void setAllowRejectLogs(boolean... allowedLogs) {
+        ((TestLoadDetectFilter) this.loadDetectFilter).allowRejectLogs(allowedLogs);
+    }
+
+    private void assertWarnLogContains(String expectedContent) {
+        Assert.assertFalse(this.testAppender.events().isEmpty());
+        LogEvent event = this.testAppender.events().get(0);
+        Assert.assertEquals(Level.WARN, event.getLevel());
+        Assert.assertContains(expectedContent,
+                              event.getMessage().getFormattedMessage());
+    }
+
+    private static class TestLoadDetectFilter extends LoadDetectFilter {
+
+        private boolean gcTriggered;
+        private final Deque<Boolean> allowRejectLogs = new ArrayDeque<>();
+
+        public void gcTriggered(boolean gcTriggered) {
+            this.gcTriggered = gcTriggered;
+        }
+
+        public void allowRejectLogs(boolean... allowedLogs) {
+            this.allowRejectLogs.clear();
+            for (boolean allowedLog : allowedLogs) {
+                this.allowRejectLogs.addLast(allowedLog);
+            }
+        }
+
+        @Override
+        protected boolean gcIfNeeded() {
+            return this.gcTriggered;
+        }
+
+        @Override
+        protected boolean allowRejectLog() {
+            if (this.allowRejectLogs.isEmpty()) {
+                return true;
+            }
+            return this.allowRejectLogs.removeFirst();
+        }
+    }
+
+    private static class TestAppender extends AbstractAppender {
+
+        private final List<LogEvent> events;
+
+        protected TestAppender() {
+            super("LoadDetectFilterTestAppender", (Filter) null,
+                  (Layout<? extends Serializable>) null, false,
+                  Property.EMPTY_ARRAY);
+            this.events = new ArrayList<>();
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            this.events.add(event.toImmutable());
+        }
+
+        public List<LogEvent> events() {
+            return this.events;
+        }
     }
 }
