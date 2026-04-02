@@ -38,8 +38,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.Filter;
 import org.apache.logging.log4j.core.Layout;
 import org.apache.logging.log4j.core.LogEvent;
-import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.config.Property;
 import org.junit.After;
 import org.junit.Before;
@@ -54,14 +55,16 @@ import jakarta.ws.rs.core.UriInfo;
 
 public class LoadDetectFilterTest extends BaseUnitTest {
 
-    private static final Logger TEST_LOGGER =
-            (Logger) LogManager.getLogger(LoadDetectFilter.class);
+    private static final String TEST_LOGGER_NAME = LoadDetectFilter.class.getName();
 
     private LoadDetectFilter loadDetectFilter;
     private ContainerRequestContext requestContext;
     private UriInfo uriInfo;
     private WorkLoad workLoad;
     private TestAppender testAppender;
+    private LoggerContext loggerContext;
+    private org.apache.logging.log4j.core.config.Configuration loggerConfiguration;
+    private LoggerConfig loggerConfig;
 
     @Before
     public void setup() {
@@ -70,7 +73,12 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         this.workLoad = new WorkLoad();
         this.testAppender = new TestAppender();
         this.testAppender.start();
-        TEST_LOGGER.addAppender(this.testAppender);
+        this.loggerContext = (LoggerContext) LogManager.getContext(false);
+        this.loggerConfiguration = this.loggerContext.getConfiguration();
+        this.loggerConfig = new LoggerConfig(TEST_LOGGER_NAME, Level.WARN, false);
+        this.loggerConfig.addAppender(this.testAppender, Level.WARN, null);
+        this.loggerConfiguration.addLogger(TEST_LOGGER_NAME, this.loggerConfig);
+        this.loggerContext.updateLoggers();
 
         Mockito.when(this.requestContext.getUriInfo()).thenReturn(this.uriInfo);
         Mockito.when(this.requestContext.getMethod()).thenReturn("GET");
@@ -82,8 +90,8 @@ public class LoadDetectFilterTest extends BaseUnitTest {
 
     @After
     public void teardown() {
-        TEST_LOGGER.removeAppender(this.testAppender);
-        this.testAppender.stop();
+        this.loggerConfiguration.removeLogger(TEST_LOGGER_NAME);
+        this.loggerContext.updateLoggers();
     }
 
     @Test
@@ -139,6 +147,25 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         this.assertWarnLogContains("method=GET");
         this.assertWarnLogContains("path=graphs/hugegraph/vertices");
         this.assertWarnLogContains("gcTriggered=false");
+    }
+
+    @Test
+    public void testFilter_RejectsWhenFreeMemoryIsTooLowWithoutLogging() {
+        setupPath("graphs/hugegraph/vertices",
+                  List.of("graphs", "hugegraph", "vertices"));
+        this.setConfigProvider(createConfig(8, Integer.MAX_VALUE));
+        this.setGcTriggered(false);
+        this.setAllowRejectLogs(false);
+
+        ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
+                ServiceUnavailableException.class,
+                () -> this.loadDetectFilter.filter(this.requestContext));
+
+        Assert.assertContains("The server available memory",
+                              exception.getMessage());
+        Assert.assertContains(ServerOptions.MIN_FREE_MEMORY.name(),
+                              exception.getMessage());
+        Assert.assertTrue(this.testAppender.events().isEmpty());
     }
 
     @Test

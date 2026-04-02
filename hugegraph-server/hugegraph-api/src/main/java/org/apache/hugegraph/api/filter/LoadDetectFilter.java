@@ -121,17 +121,20 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         long presumableFreeMem = (Runtime.getRuntime().maxMemory() -
                                   allocatedMem) / Bytes.MB;
         if (presumableFreeMem < minFreeMemory) {
+            boolean shouldLog = this.allowRejectLog();
             boolean gcTriggered = this.gcIfNeeded();
-            long allocatedMemAfterCheck = Runtime.getRuntime().totalMemory() -
-                                          Runtime.getRuntime().freeMemory();
-            long recheckedFreeMem = (Runtime.getRuntime().maxMemory() -
-                                     allocatedMemAfterCheck) / Bytes.MB;
-            this.logRejectWarning("Rejected request due to low free memory, method={}, path={}, " +
-                                  "presumableFreeMemMB={}, recheckedFreeMemMB={}, gcTriggered={}, " +
-                                  "minFreeMemoryMB={}",
-                                  context.getMethod(), context.getUriInfo().getPath(),
-                                  presumableFreeMem, recheckedFreeMem, gcTriggered,
-                                  minFreeMemory);
+            if (shouldLog) {
+                long allocatedMemAfterCheck = Runtime.getRuntime().totalMemory() -
+                                              Runtime.getRuntime().freeMemory();
+                long recheckedFreeMem = (Runtime.getRuntime().maxMemory() -
+                                         allocatedMemAfterCheck) / Bytes.MB;
+                LOG.warn("Rejected request due to low free memory, method={}, path={}, " +
+                         "presumableFreeMemMB={}, recheckedFreeMemMB={}, gcTriggered={}, " +
+                         "minFreeMemoryMB={}",
+                         context.getMethod(), context.getUriInfo().getPath(),
+                         presumableFreeMem, recheckedFreeMem, gcTriggered,
+                         minFreeMemory);
+            }
             throw new ServiceUnavailableException(String.format(
                     "The server available memory %s(MB) is below than " +
                     "threshold %s(MB) and can't process the request, " +
