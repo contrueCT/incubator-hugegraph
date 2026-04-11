@@ -9,10 +9,6 @@ on:
       - "Cluster Test CI"
     types:
       - completed
-    branches:
-      - master
-      - 'release-*'
-      - 'test-*'
 
 permissions:
   actions: write
