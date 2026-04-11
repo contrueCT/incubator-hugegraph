@@ -4647,6 +4647,30 @@ public class EdgeCoreTest extends BaseCoreTest {
     }
 
     @Test
+    public void testQueryInEdgesOfVertexByConflictingLabels() {
+        HugeGraph graph = graph();
+        init18Edges();
+
+        long direct = graph.traversal().V().inE("created")
+                           .hasLabel("created", "look")
+                           .hasLabel("authored")
+                           .count().next();
+        Assert.assertEquals(0L, direct);
+
+        long matched = graph.traversal().V()
+                            .match(__.as("start1")
+                                     .repeat(__.inE("created"))
+                                     .times(1)
+                                     .as("m1"))
+                            .select("m1")
+                            .hasLabel("created", "look")
+                            .hasLabel("authored")
+                            .count().next();
+        Assert.assertEquals(0L, matched);
+        Assert.assertEquals(matched, direct);
+    }
+
+    @Test
     public void testQueryInEdgesOfVertexBySortkey() {
         HugeGraph graph = graph();
         init18Edges();
