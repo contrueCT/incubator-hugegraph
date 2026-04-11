@@ -10,17 +10,17 @@ on:
     types:
       - completed
 
-permissions:
-  actions: write
-  contents: read
+permissions: {}
 
 env:
   MAX_RERUNS: '2'
   RETRY_DELAY_SECONDS: '180'
 
 jobs:
-  rerun-failed-jobs:
+  decide-rerun-action:
     runs-on: ubuntu-latest
+    outputs:
+      action: ${{ steps.decision.outputs.action }}
     steps:
       - name: Decide rerun action
         id: decision
@@ -67,13 +67,19 @@ jobs:
             echo "- Reason: $reason"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  rerun-failed-jobs:
+    needs: decide-rerun-action
+    if: needs.decide-rerun-action.outputs.action == 'rerun'
+    permissions:
+      actions: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
       - name: Wait before rerun
-        if: steps.decision.outputs.action == 'rerun'
         run: |
           sleep "$RETRY_DELAY_SECONDS"
 
       - name: Rerun failed jobs
-        if: steps.decision.outputs.action == 'rerun'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
