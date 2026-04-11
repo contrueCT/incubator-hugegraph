@@ -14,7 +14,7 @@ permissions: {}
 
 env:
   MAX_RERUNS: '2'
-  RETRY_DELAY_SECONDS: '60'
+  RETRY_DELAY_SECONDS: '180'
 
 jobs:
   decide-rerun-action:
