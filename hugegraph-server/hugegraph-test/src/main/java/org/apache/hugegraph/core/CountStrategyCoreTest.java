@@ -86,6 +86,21 @@ public class CountStrategyCoreTest extends BaseCoreTest {
     }
 
     @Test
+    public void testRepeatUntilCountLtNegativeIsAlwaysFalse() {
+        this.initSchema();
+        this.initGraph();
+
+        long count = graph().traversal().E()
+                            .hasLabel("knows")
+                            .outV()
+                            .repeat(__.out())
+                            .until(__.outE().count().is(P.lt(-1)))
+                            .count().next();
+
+        Assert.assertEquals(0L, count);
+    }
+
+    @Test
     public void testWhereCountGteNegativeDoesNotBuildInvalidRange() {
         this.initSchema();
         this.initGraph();
