@@ -4659,8 +4659,7 @@ public class EdgeCoreTest extends BaseCoreTest {
 
         long matched = graph.traversal().V()
                             .match(__.as("start1")
-                                     .repeat(__.inE("created"))
-                                     .times(1)
+                                     .inE("created")
                                      .as("m1"))
                             .select("m1")
                             .hasLabel("created", "look")
