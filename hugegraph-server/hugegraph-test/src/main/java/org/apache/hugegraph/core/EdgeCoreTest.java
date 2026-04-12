@@ -7121,6 +7121,8 @@ public class EdgeCoreTest extends BaseCoreTest {
     public void testQueryEdgeByBooleanRangePredicate() {
         HugeGraph graph = graph();
         initStrikeIndex();
+        graph.schema().indexLabel("strikeByArrested").onE("strike").secondary()
+             .by("arrested").create();
 
         Vertex louise = graph.addVertex(T.label, "person", "name", "Louise",
                                         "city", "Beijing", "age", 21);
