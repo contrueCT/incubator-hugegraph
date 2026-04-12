@@ -7138,6 +7138,12 @@ public class EdgeCoreTest extends BaseCoreTest {
                        "tool", "shovel", "reason", "jeer",
                        "arrested", true);
 
+        List<Edge> hasLtEdges = graph.traversal().E()
+                                     .has("arrested", P.lt(true))
+                                     .toList();
+        Assert.assertEquals(1, hasLtEdges.size());
+        Assert.assertEquals(1, (int) hasLtEdges.get(0).value("id"));
+
         List<Edge> whereEdges = graph.traversal().E()
                                      .where(__.has("arrested", P.lt(true)))
                                      .toList();
@@ -7153,6 +7159,51 @@ public class EdgeCoreTest extends BaseCoreTest {
                                      .toList();
         Assert.assertEquals(1, matchEdges.size());
         Assert.assertEquals(1, (int) matchEdges.get(0).value("id"));
+
+        List<Edge> hasLteFalseEdges = graph.traversal().E()
+                                           .has("arrested", P.lte(false))
+                                           .toList();
+        Assert.assertEquals(1, hasLteFalseEdges.size());
+        Assert.assertEquals(1, (int) hasLteFalseEdges.get(0).value("id"));
+
+        List<Edge> hasGtFalseEdges = graph.traversal().E()
+                                          .has("arrested", P.gt(false))
+                                          .toList();
+        Assert.assertEquals(1, hasGtFalseEdges.size());
+        Assert.assertEquals(2, (int) hasGtFalseEdges.get(0).value("id"));
+
+        List<Edge> hasGteTrueEdges = graph.traversal().E()
+                                           .has("arrested", P.gte(true))
+                                           .toList();
+        Assert.assertEquals(1, hasGteTrueEdges.size());
+        Assert.assertEquals(2, (int) hasGteTrueEdges.get(0).value("id"));
+
+        List<Edge> hasGteFalseEdges = graph.traversal().E()
+                                            .has("arrested", P.gte(false))
+                                            .toList();
+        Assert.assertEquals(2, hasGteFalseEdges.size());
+        Set<Integer> gteFalseIds = new HashSet<>();
+        for (Edge edge : hasGteFalseEdges) {
+            gteFalseIds.add(edge.value("id"));
+        }
+        Assert.assertEquals(ImmutableSet.of(1, 2), gteFalseIds);
+
+        List<Edge> hasLteTrueEdges = graph.traversal().E()
+                                           .has("arrested", P.lte(true))
+                                           .toList();
+        Assert.assertEquals(2, hasLteTrueEdges.size());
+        Set<Integer> lteTrueIds = new HashSet<>();
+        for (Edge edge : hasLteTrueEdges) {
+            lteTrueIds.add(edge.value("id"));
+        }
+        Assert.assertEquals(ImmutableSet.of(1, 2), lteTrueIds);
+
+        Assert.assertEquals(0, graph.traversal().E()
+                                    .has("arrested", P.lt(false))
+                                    .toList().size());
+        Assert.assertEquals(0, graph.traversal().E()
+                                    .has("arrested", P.gt(true))
+                                    .toList().size());
     }
 
     @Test
