@@ -427,9 +427,26 @@ public final class ConditionQueryFlatten {
         if (low == null || high == null) {
             return true;
         }
-        return compare(low, high) < 0 || compare(low, high) == 0 &&
-                                         low.relation() == Condition.RelationType.GTE &&
-                                         high.relation() == Condition.RelationType.LTE;
+        int compared = compare(low, high);
+        if (compared > 0) {
+            return false;
+        }
+        if (compared == 0) {
+            return low.relation() == Condition.RelationType.GTE &&
+                   high.relation() == Condition.RelationType.LTE;
+        }
+        return !emptyBooleanRange(low, high);
+    }
+
+    private static boolean emptyBooleanRange(Relation low, Relation high) {
+        if (!(low.value() instanceof Boolean) ||
+            !(high.value() instanceof Boolean)) {
+            return false;
+        }
+        return Boolean.FALSE.equals(low.value()) &&
+               Boolean.TRUE.equals(high.value()) &&
+               low.relation() == Condition.RelationType.GT &&
+               high.relation() == Condition.RelationType.LT;
     }
 
     private static boolean validEq(Relation eq, Relation low, Relation high) {
