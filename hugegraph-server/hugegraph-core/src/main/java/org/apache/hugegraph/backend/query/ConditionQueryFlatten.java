@@ -507,6 +507,9 @@ public final class ConditionQueryFlatten {
             return NumericUtil.compareNumber(firstValue, (Number) secondValue);
         } else if (firstValue instanceof Date && secondValue instanceof Date) {
             return ((Date) firstValue).compareTo((Date) secondValue);
+        } else if (firstValue instanceof Boolean &&
+                   secondValue instanceof Boolean) {
+            return Boolean.compare((Boolean) firstValue, (Boolean) secondValue);
         } else {
             throw new IllegalArgumentException(String.format("Can't compare between %s and %s",
                                                              first, second));

@@ -256,5 +256,48 @@ public class ConditionQueryFlattenTest extends BaseUnitTest {
         Collection<Condition> actual = queries.iterator().next().conditions();
         Assert.assertEquals(expect, actual);
     }
+
+    @Test
+    public void testFlattenWithBooleanRangeUpperBound() {
+        Id key = IdGenerator.of("c1");
+
+        ConditionQuery query = new ConditionQuery(HugeType.VERTEX);
+        query.query(Condition.lt(key, true));
+        query.query(Condition.lt(key, false));
+
+        List<ConditionQuery> queries = ConditionQueryFlatten.flatten(query);
+        Assert.assertEquals(1, queries.size());
+
+        Collection<Condition> actual = queries.iterator().next().conditions();
+        Assert.assertEquals(ImmutableList.of(Condition.lt(key, false)), actual);
+    }
+
+    @Test
+    public void testFlattenWithBooleanRangeWindow() {
+        Id key = IdGenerator.of("c1");
+
+        ConditionQuery query = new ConditionQuery(HugeType.VERTEX);
+        query.query(Condition.gte(key, false));
+        query.query(Condition.lt(key, true));
+
+        List<ConditionQuery> queries = ConditionQueryFlatten.flatten(query);
+        Assert.assertEquals(1, queries.size());
+
+        Collection<Condition> actual = queries.iterator().next().conditions();
+        Assert.assertEquals(ImmutableList.of(Condition.gte(key, false),
+                                             Condition.lt(key, true)), actual);
+    }
+
+    @Test
+    public void testFlattenWithConflictingBooleanRange() {
+        Id key = IdGenerator.of("c1");
+
+        ConditionQuery query = new ConditionQuery(HugeType.VERTEX);
+        query.query(Condition.gt(key, false));
+        query.query(Condition.lt(key, true));
+
+        List<ConditionQuery> queries = ConditionQueryFlatten.flatten(query);
+        Assert.assertEquals(0, queries.size());
+    }
 }
 

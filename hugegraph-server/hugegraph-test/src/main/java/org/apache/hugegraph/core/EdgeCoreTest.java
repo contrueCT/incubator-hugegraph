@@ -7118,6 +7118,48 @@ public class EdgeCoreTest extends BaseCoreTest {
     }
 
     @Test
+    public void testQueryEdgeByBooleanRangePredicate() {
+        HugeGraph graph = graph();
+        initStrikeIndex();
+
+        Vertex louise = graph.addVertex(T.label, "person", "name", "Louise",
+                                        "city", "Beijing", "age", 21);
+        Vertex sean = graph.addVertex(T.label, "person", "name", "Sean",
+                                      "city", "Beijing", "age", 23);
+        long current = System.currentTimeMillis();
+        louise.addEdge("strike", sean, "id", 1,
+                       "timestamp", current, "place", "park",
+                       "tool", "shovel", "reason", "jeer",
+                       "arrested", false);
+        louise.addEdge("strike", sean, "id", 2,
+                       "timestamp", current + 1, "place", "street",
+                       "tool", "shovel", "reason", "jeer",
+                       "arrested", true);
+
+        List<Edge> hasEdges = graph.traversal().E()
+                                   .has("arrested", P.lt(true))
+                                   .toList();
+        Assert.assertEquals(1, hasEdges.size());
+        Assert.assertEquals(1, (int) hasEdges.get(0).value("id"));
+
+        List<Edge> whereEdges = graph.traversal().E()
+                                     .where(__.has("arrested", P.lt(true)))
+                                     .toList();
+        Assert.assertEquals(1, whereEdges.size());
+        Assert.assertEquals(1, (int) whereEdges.get(0).value("id"));
+
+        List<Edge> matchEdges = graph.traversal().E()
+                                     .as("e")
+                                     .match(__.as("e")
+                                              .has("arrested", P.lt(true)))
+                                     .<Edge>select("e")
+                                     .dedup()
+                                     .toList();
+        Assert.assertEquals(1, matchEdges.size());
+        Assert.assertEquals(1, (int) matchEdges.get(0).value("id"));
+    }
+
+    @Test
     public void testQueryEdgeByPage() {
         Assume.assumeTrue("Not support paging",
                           storeFeatures().supportsQueryByPage());
