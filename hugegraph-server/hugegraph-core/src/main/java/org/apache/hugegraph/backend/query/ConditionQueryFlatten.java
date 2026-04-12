@@ -265,7 +265,7 @@ public final class ConditionQueryFlatten {
             cq.query(nonRelations);
             return ImmutableList.of(cq);
         }
-        return ImmutableList.of(query);
+        return ImmutableList.of();
     }
 
     private static Relations optimizeRelations(Relations relations) {
