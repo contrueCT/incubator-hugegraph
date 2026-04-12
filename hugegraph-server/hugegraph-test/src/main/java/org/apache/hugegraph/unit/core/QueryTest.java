@@ -77,6 +77,25 @@ public class QueryTest {
     }
 
     @Test
+    public void testConditionWithMultipleMatchedInValues() {
+        Id label1 = IdGenerator.of(1);
+        Id label2 = IdGenerator.of(2);
+        Id label3 = IdGenerator.of(3);
+        Id label4 = IdGenerator.of(4);
+
+        ConditionQuery query = new ConditionQuery(HugeType.EDGE);
+        query.query(Condition.in(HugeKeys.LABEL,
+                                 ImmutableList.of(label1, label2, label3)));
+        query.query(Condition.in(HugeKeys.LABEL,
+                                 ImmutableList.of(label1, label2, label4)));
+
+        Assert.assertThrows(IllegalStateException.class,
+                            () -> query.condition(HugeKeys.LABEL),
+                            e -> Assert.assertContains("Illegal key 'LABEL'",
+                                                       e.getMessage()));
+    }
+
+    @Test
     public void testToString() {
         Query query = new Query(HugeType.VERTEX);
         Assert.assertEquals("`Query * from VERTEX`", query.toString());
