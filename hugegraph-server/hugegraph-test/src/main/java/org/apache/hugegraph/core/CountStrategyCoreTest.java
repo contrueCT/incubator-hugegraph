@@ -101,6 +101,18 @@ public class CountStrategyCoreTest extends BaseCoreTest {
     }
 
     @Test
+    public void testWhereCountWithinNegativeCollectionIsAlwaysFalse() {
+        this.initSchema();
+        this.initGraph();
+
+        long count = graph().traversal().V()
+                            .where(__.outE().count().is(P.within(-3, -5)))
+                            .count().next();
+
+        Assert.assertEquals(0L, count);
+    }
+
+    @Test
     public void testWhereCountGteNegativeDoesNotBuildInvalidRange() {
         this.initSchema();
         this.initGraph();
