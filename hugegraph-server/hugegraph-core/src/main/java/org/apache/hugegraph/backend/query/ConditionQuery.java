@@ -268,8 +268,9 @@ public class ConditionQuery extends IdQuery {
      * <li>throws if multiple values remain after resolving several relations</li>
      * </ul>
      *
-     * Prefer {@link #conditionValues(Object)} or {@link #conditionValue(Object)}
-     * for new code that needs explicit semantics.
+     * Prefer {@link #conditionValues(Object)}, {@link #uniqueConditionValue(Object)}
+     * or {@link #conditionValue(Object)} for new code that needs explicit
+     * semantics.
      */
     @Watched
     public <T> T condition(Object key) {
@@ -290,29 +291,8 @@ public class ConditionQuery extends IdQuery {
             return value;
         }
 
-        boolean initialized = false;
-        Set<Object> intersectValues = InsertionOrderUtil.newSet();
-        for (Object value : valuesEQ) {
-            List<Object> valueAsList = ImmutableList.of(value);
-            if (!initialized) {
-                intersectValues.addAll(valueAsList);
-                initialized = true;
-            } else {
-                CollectionUtil.intersectWithModify(intersectValues,
-                                                   valueAsList);
-            }
-        }
-        for (Object value : valuesIN) {
-            @SuppressWarnings("unchecked")
-            List<Object> valueAsList = (List<Object>) value;
-            if (!initialized) {
-                intersectValues.addAll(valueAsList);
-                initialized = true;
-            } else {
-                CollectionUtil.intersectWithModify(intersectValues,
-                                                   valueAsList);
-            }
-        }
+        Set<Object> intersectValues = this.resolveConditionValues(valuesEQ,
+                                                                  valuesIN);
 
         if (intersectValues.isEmpty()) {
             return null;
@@ -372,6 +352,24 @@ public class ConditionQuery extends IdQuery {
         E.checkState(values.size() == 1,
                      "Illegal key '%s' with more than one value: %s",
                      key, values);
+        @SuppressWarnings("unchecked")
+        T value = (T) values.iterator().next();
+        return value;
+    }
+
+    /**
+     * Returns the unique resolved value of the specified key from top-level
+     * EQ/IN relations, or {@code null} if the resolved candidate set doesn't
+     * contain exactly one value.
+     *
+     * Use this method when callers want "single-or-null" semantics instead of
+     * treating multiple remaining values as an error.
+     */
+    public <T> T uniqueConditionValue(Object key) {
+        Set<Object> values = this.conditionValues(key);
+        if (values.size() != 1) {
+            return null;
+        }
         @SuppressWarnings("unchecked")
         T value = (T) values.iterator().next();
         return value;

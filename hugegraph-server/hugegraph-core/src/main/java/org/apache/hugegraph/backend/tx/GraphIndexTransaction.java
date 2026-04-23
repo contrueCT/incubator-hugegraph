@@ -415,6 +415,8 @@ public class GraphIndexTransaction extends AbstractTransaction {
         HugeType queryType = query.resultType();
         IndexLabel il = IndexLabel.label(queryType);
         validateIndexLabel(il);
+        // Query-by-label builds a label index entry and requires one
+        // deterministically resolved label instead of best-effort fallback.
         Id label = query.conditionValue(HugeKeys.LABEL);
         E.checkState(label != null, "Expect one label value for query: %s",
                      query);
@@ -483,7 +485,7 @@ public class GraphIndexTransaction extends AbstractTransaction {
         }
         Set<MatchedIndex> indexes = this.collectMatchedIndexes(query);
         if (indexes.isEmpty()) {
-            Id label = uniqueLabel(query);
+            Id label = query.uniqueConditionValue(HugeKeys.LABEL);
             throw noIndexException(this.graph(), query, label);
         }
 
@@ -1788,7 +1790,7 @@ public class GraphIndexTransaction extends AbstractTransaction {
             }
 
             // Check label is matched
-            Id label = uniqueLabel(query);
+            Id label = query.uniqueConditionValue(HugeKeys.LABEL);
             // NOTE: original condition query may not have label condition,
             // which means possibly label == null.
             if (label != null && !element.schemaLabel().id().equals(label)) {
@@ -1987,13 +1989,5 @@ public class GraphIndexTransaction extends AbstractTransaction {
 
             return t1 + t2;
         }
-    }
-
-    private static Id uniqueLabel(ConditionQuery query) {
-        Set<Object> labels = query.conditionValues(HugeKeys.LABEL);
-        if (labels.size() != 1) {
-            return null;
-        }
-        return (Id) labels.iterator().next();
     }
 }
