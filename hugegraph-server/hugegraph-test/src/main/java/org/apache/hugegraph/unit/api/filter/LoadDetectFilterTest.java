@@ -22,6 +22,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 
 import org.apache.commons.configuration2.Configuration;
@@ -83,15 +85,20 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         Mockito.when(this.requestContext.getUriInfo()).thenReturn(this.uriInfo);
         Mockito.when(this.requestContext.getMethod()).thenReturn("GET");
 
-        this.loadDetectFilter = new TestLoadDetectFilter();
+        this.loadDetectFilter = new LoadDetectFilter();
         this.setLoadProvider(this.workLoad);
         this.setConfigProvider(createConfig(8, 0));
+        this.setGcResults(false);
+        this.setBusyLogPermits(true);
+        this.setMemoryLogPermits(true);
+        this.setFreeMemorySamples(1024L, 1024L);
     }
 
     @After
     public void teardown() {
         this.loggerConfiguration.removeLogger(TEST_LOGGER_NAME);
         this.loggerContext.updateLoggers();
+        this.testAppender.stop();
     }
 
     @Test
@@ -131,39 +138,78 @@ public class LoadDetectFilterTest extends BaseUnitTest {
     public void testFilter_RejectsWhenFreeMemoryIsTooLow() {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
-        this.setConfigProvider(createConfig(8, Integer.MAX_VALUE));
-        this.setGcTriggered(false);
+        this.setConfigProvider(createConfig(8, 512));
+        this.setFreeMemorySamples(256L);
+        this.setGcResults(false);
 
         ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
                 ServiceUnavailableException.class,
                 () -> this.loadDetectFilter.filter(this.requestContext));
 
-        Assert.assertContains("The server available memory",
-                              exception.getMessage());
-        Assert.assertContains(ServerOptions.MIN_FREE_MEMORY.name(),
+        Assert.assertContains("The server available memory 256(MB) is below than threshold 512(MB)",
                               exception.getMessage());
         Assert.assertEquals(1, this.testAppender.events().size());
         this.assertWarnLogContains("Rejected request due to low free memory");
         this.assertWarnLogContains("method=GET");
         this.assertWarnLogContains("path=graphs/hugegraph/vertices");
-        this.assertWarnLogContains("gcTriggered=false");
+        this.assertWarnLogContains("presumableFreeMemMB=256");
+        this.assertWarnLogContains("minFreeMemoryMB=512");
+        this.assertWarnLogNotContains("recheckedFreeMemMB");
+    }
+
+    @Test
+    public void testFilter_RejectsWhenFreeMemoryIsStillLowAfterGc() {
+        setupPath("graphs/hugegraph/vertices",
+                  List.of("graphs", "hugegraph", "vertices"));
+        this.setConfigProvider(createConfig(8, 512));
+        this.setFreeMemorySamples(256L, 128L);
+        this.setGcResults(true);
+
+        ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
+                ServiceUnavailableException.class,
+                () -> this.loadDetectFilter.filter(this.requestContext));
+
+        Assert.assertContains("The server available memory 128(MB) is below than threshold 512(MB)",
+                              exception.getMessage());
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Rejected request due to low free memory after GC");
+        this.assertWarnLogContains("presumableFreeMemMB=256");
+        this.assertWarnLogContains("recheckedFreeMemMB=128");
+        this.assertWarnLogContains("minFreeMemoryMB=512");
+    }
+
+    @Test
+    public void testFilter_AllowsRequestWhenFreeMemoryRecoversAfterGc() {
+        setupPath("graphs/hugegraph/vertices",
+                  List.of("graphs", "hugegraph", "vertices"));
+        this.setConfigProvider(createConfig(8, 512));
+        this.setFreeMemorySamples(256L, 1024L);
+        this.setGcResults(true);
+
+        this.loadDetectFilter.filter(this.requestContext);
+
+        Assert.assertEquals(1, this.workLoad.get().get());
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Low free memory recovered after GC");
+        this.assertWarnLogContains("presumableFreeMemMB=256");
+        this.assertWarnLogContains("recheckedFreeMemMB=1024");
+        this.assertWarnLogContains("minFreeMemoryMB=512");
     }
 
     @Test
     public void testFilter_RejectsWhenFreeMemoryIsTooLowWithoutLogging() {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
-        this.setConfigProvider(createConfig(8, Integer.MAX_VALUE));
-        this.setGcTriggered(false);
-        this.setAllowRejectLogs(false);
+        this.setConfigProvider(createConfig(8, 512));
+        this.setFreeMemorySamples(256L);
+        this.setGcResults(false);
+        this.setMemoryLogPermits(false);
 
         ServiceUnavailableException exception = (ServiceUnavailableException) Assert.assertThrows(
                 ServiceUnavailableException.class,
                 () -> this.loadDetectFilter.filter(this.requestContext));
 
-        Assert.assertContains("The server available memory",
-                              exception.getMessage());
-        Assert.assertContains(ServerOptions.MIN_FREE_MEMORY.name(),
+        Assert.assertContains("The server available memory 256(MB) is below than threshold 512(MB)",
                               exception.getMessage());
         Assert.assertTrue(this.testAppender.events().isEmpty());
     }
@@ -185,13 +231,62 @@ public class LoadDetectFilterTest extends BaseUnitTest {
         setupPath("graphs/hugegraph/vertices",
                   List.of("graphs", "hugegraph", "vertices"));
         this.setConfigProvider(createConfig(2, 0));
-        this.setAllowRejectLogs(true, false);
+        this.setBusyLogPermits(true, false);
 
         this.workLoad.incrementAndGet();
         Assert.assertThrows(ServiceUnavailableException.class,
                             () -> this.loadDetectFilter.filter(this.requestContext));
 
         this.workLoad.get().set(1);
+        Assert.assertThrows(ServiceUnavailableException.class,
+                            () -> this.loadDetectFilter.filter(this.requestContext));
+
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Rejected request due to high worker load");
+    }
+
+    @Test
+    public void testFilter_BusyRejectLogPermitDoesNotAffectMemoryRejectLog() {
+        setupPath("graphs/hugegraph/vertices",
+                  List.of("graphs", "hugegraph", "vertices"));
+        this.setConfigProvider(createConfig(2, 0));
+        this.setBusyLogPermits(false);
+        this.workLoad.incrementAndGet();
+
+        Assert.assertThrows(ServiceUnavailableException.class,
+                            () -> this.loadDetectFilter.filter(this.requestContext));
+        Assert.assertTrue(this.testAppender.events().isEmpty());
+
+        this.workLoad.get().set(0);
+        this.setConfigProvider(createConfig(8, 512));
+        this.setFreeMemorySamples(256L);
+        this.setGcResults(false);
+        this.setMemoryLogPermits(true);
+
+        Assert.assertThrows(ServiceUnavailableException.class,
+                            () -> this.loadDetectFilter.filter(this.requestContext));
+
+        Assert.assertEquals(1, this.testAppender.events().size());
+        this.assertWarnLogContains("Rejected request due to low free memory");
+    }
+
+    @Test
+    public void testFilter_MemoryRejectLogPermitDoesNotAffectBusyRejectLog() {
+        setupPath("graphs/hugegraph/vertices",
+                  List.of("graphs", "hugegraph", "vertices"));
+        this.setConfigProvider(createConfig(8, 512));
+        this.setFreeMemorySamples(256L);
+        this.setGcResults(false);
+        this.setMemoryLogPermits(false);
+
+        Assert.assertThrows(ServiceUnavailableException.class,
+                            () -> this.loadDetectFilter.filter(this.requestContext));
+        Assert.assertTrue(this.testAppender.events().isEmpty());
+
+        this.workLoad.get().set(1);
+        this.setConfigProvider(createConfig(2, 0));
+        this.setBusyLogPermits(true);
+
         Assert.assertThrows(ServiceUnavailableException.class,
                             () -> this.loadDetectFilter.filter(this.requestContext));
 
@@ -230,12 +325,40 @@ public class LoadDetectFilterTest extends BaseUnitTest {
                                   (Provider<HugeConfig>) () -> config);
     }
 
-    private void setGcTriggered(boolean gcTriggered) {
-        ((TestLoadDetectFilter) this.loadDetectFilter).gcTriggered(gcTriggered);
+    private void setGcResults(boolean... gcResults) {
+        this.setBooleanSupplier("gcTrigger", false, gcResults);
     }
 
-    private void setAllowRejectLogs(boolean... allowedLogs) {
-        ((TestLoadDetectFilter) this.loadDetectFilter).allowRejectLogs(allowedLogs);
+    private void setBusyLogPermits(boolean... permits) {
+        this.setBooleanSupplier("busyRejectLogPermit", true, permits);
+    }
+
+    private void setMemoryLogPermits(boolean... permits) {
+        this.setBooleanSupplier("memoryRejectLogPermit", true, permits);
+    }
+
+    private void setFreeMemorySamples(long... freeMemorySamples) {
+        Assert.assertTrue(freeMemorySamples.length > 0);
+        Deque<Long> samples = new ArrayDeque<>();
+        for (long freeMemorySample : freeMemorySamples) {
+            samples.addLast(freeMemorySample);
+        }
+        long fallback = freeMemorySamples[freeMemorySamples.length - 1];
+        Whitebox.setInternalState(this.loadDetectFilter, "freeMemorySupplier",
+                                  (LongSupplier) () -> samples.isEmpty() ? fallback :
+                                                     samples.removeFirst());
+    }
+
+    private void setBooleanSupplier(String fieldName, boolean fallback,
+                                    boolean... values) {
+        Deque<Boolean> results = new ArrayDeque<>();
+        for (boolean value : values) {
+            results.addLast(value);
+        }
+        Whitebox.setInternalState(this.loadDetectFilter, fieldName,
+                                  (BooleanSupplier) () -> results.isEmpty() ?
+                                                         fallback :
+                                                         results.removeFirst());
     }
 
     private void assertWarnLogContains(String expectedContent) {
@@ -246,34 +369,11 @@ public class LoadDetectFilterTest extends BaseUnitTest {
                               event.getMessage().getFormattedMessage());
     }
 
-    private static class TestLoadDetectFilter extends LoadDetectFilter {
-
-        private boolean gcTriggered;
-        private final Deque<Boolean> allowRejectLogs = new ArrayDeque<>();
-
-        public void gcTriggered(boolean gcTriggered) {
-            this.gcTriggered = gcTriggered;
-        }
-
-        public void allowRejectLogs(boolean... allowedLogs) {
-            this.allowRejectLogs.clear();
-            for (boolean allowedLog : allowedLogs) {
-                this.allowRejectLogs.addLast(allowedLog);
-            }
-        }
-
-        @Override
-        protected boolean gcIfNeeded() {
-            return this.gcTriggered;
-        }
-
-        @Override
-        protected boolean allowRejectLog() {
-            if (this.allowRejectLogs.isEmpty()) {
-                return true;
-            }
-            return this.allowRejectLogs.removeFirst();
-        }
+    private void assertWarnLogNotContains(String unexpectedContent) {
+        Assert.assertFalse(this.testAppender.events().isEmpty());
+        LogEvent event = this.testAppender.events().get(0);
+        Assert.assertFalse(event.getMessage().getFormattedMessage()
+                                .contains(unexpectedContent));
     }
 
     private static class TestAppender extends AbstractAppender {

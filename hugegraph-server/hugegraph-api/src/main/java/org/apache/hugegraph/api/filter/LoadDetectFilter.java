@@ -19,6 +19,8 @@ package org.apache.hugegraph.api.filter;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
+import java.util.function.LongSupplier;
 
 import org.apache.hugegraph.config.HugeConfig;
 import org.apache.hugegraph.config.ServerOptions;
@@ -59,12 +61,21 @@ public class LoadDetectFilter implements ContainerRequestFilter {
             RateLimiter.create(1.0 / 30);
 
     // Log at most 1 request per second to avoid too many logs when server is under heavy load
-    private static final RateLimiter REJECT_LOG_RATE_LIMITER = RateLimiter.create(1.0);
+    private static final RateLimiter BUSY_REJECT_LOG_RATE_LIMITER =
+            RateLimiter.create(1.0);
+    private static final RateLimiter MEMORY_REJECT_LOG_RATE_LIMITER =
+            RateLimiter.create(1.0);
 
     @Context
     private jakarta.inject.Provider<HugeConfig> configProvider;
     @Context
     private jakarta.inject.Provider<WorkLoad> loadProvider;
+    private BooleanSupplier gcTrigger = LoadDetectFilter::triggerGcIfNeeded;
+    private BooleanSupplier busyRejectLogPermit =
+            BUSY_REJECT_LOG_RATE_LIMITER::tryAcquire;
+    private BooleanSupplier memoryRejectLogPermit =
+            MEMORY_REJECT_LOG_RATE_LIMITER::tryAcquire;
+    private LongSupplier freeMemorySupplier = LoadDetectFilter::currentFreeMemoryInMB;
 
     public static boolean isWhiteAPI(ContainerRequestContext context) {
         List<PathSegment> segments = context.getUriInfo().getPathSegments();
@@ -74,7 +85,7 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         return WHITE_API_LIST.contains(rootPath);
     }
 
-    protected boolean gcIfNeeded() {
+    private static boolean triggerGcIfNeeded() {
         if (GC_RATE_LIMITER.tryAcquire(1)) {
             System.gc();
             return true;
@@ -82,14 +93,10 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         return false;
     }
 
-    protected boolean allowRejectLog() {
-        return REJECT_LOG_RATE_LIMITER.tryAcquire();
-    }
-
-    protected void logRejectWarning(String message, Object... args) {
-        if (this.allowRejectLog()) {
-            LOG.warn(message, args);
-        }
+    private static long currentFreeMemoryInMB() {
+        long allocatedMem = Runtime.getRuntime().totalMemory() -
+                            Runtime.getRuntime().freeMemory();
+        return (Runtime.getRuntime().maxMemory() - allocatedMem) / Bytes.MB;
     }
 
     @Override
@@ -105,10 +112,12 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         // There will be a thread doesn't work, dedicated to statistics
         int currentLoad = load.incrementAndGet();
         if (currentLoad >= maxWorkerThreads) {
-            this.logRejectWarning("Rejected request due to high worker load, method={}, path={}, " +
-                                  "currentLoad={}, maxWorkerThreads={}",
-                                  context.getMethod(), context.getUriInfo().getPath(),
-                                  currentLoad, maxWorkerThreads);
+            if (this.busyRejectLogPermit.getAsBoolean()) {
+                LOG.warn("Rejected request due to high worker load, method={}, path={}, " +
+                         "currentLoad={}, maxWorkerThreads={}",
+                         context.getMethod(), context.getUriInfo().getPath(),
+                         currentLoad, maxWorkerThreads);
+            }
             throw new ServiceUnavailableException(String.format(
                     "The server is too busy to process the request, " +
                     "you can config %s to adjust it or try again later",
@@ -116,24 +125,34 @@ public class LoadDetectFilter implements ContainerRequestFilter {
         }
 
         long minFreeMemory = config.get(ServerOptions.MIN_FREE_MEMORY);
-        long allocatedMem = Runtime.getRuntime().totalMemory() -
-                            Runtime.getRuntime().freeMemory();
-        long presumableFreeMem = (Runtime.getRuntime().maxMemory() -
-                                  allocatedMem) / Bytes.MB;
+        long presumableFreeMem = this.freeMemorySupplier.getAsLong();
         if (presumableFreeMem < minFreeMemory) {
-            boolean shouldLog = this.allowRejectLog();
-            boolean gcTriggered = this.gcIfNeeded();
-            if (shouldLog) {
-                long allocatedMemAfterCheck = Runtime.getRuntime().totalMemory() -
-                                              Runtime.getRuntime().freeMemory();
-                long recheckedFreeMem = (Runtime.getRuntime().maxMemory() -
-                                         allocatedMemAfterCheck) / Bytes.MB;
+            boolean gcTriggered = this.gcTrigger.getAsBoolean();
+            if (gcTriggered) {
+                long recheckedFreeMem = this.freeMemorySupplier.getAsLong();
+                if (recheckedFreeMem >= minFreeMemory) {
+                    if (this.memoryRejectLogPermit.getAsBoolean()) {
+                        LOG.warn("Low free memory recovered after GC, method={}, path={}, " +
+                                 "presumableFreeMemMB={}, recheckedFreeMemMB={}, " +
+                                 "minFreeMemoryMB={}",
+                                 context.getMethod(), context.getUriInfo().getPath(),
+                                 presumableFreeMem, recheckedFreeMem, minFreeMemory);
+                    }
+                    return;
+                }
+                if (this.memoryRejectLogPermit.getAsBoolean()) {
+                    LOG.warn("Rejected request due to low free memory after GC, " +
+                             "method={}, path={}, presumableFreeMemMB={}, " +
+                             "recheckedFreeMemMB={}, minFreeMemoryMB={}",
+                             context.getMethod(), context.getUriInfo().getPath(),
+                             presumableFreeMem, recheckedFreeMem, minFreeMemory);
+                }
+                presumableFreeMem = recheckedFreeMem;
+            } else if (this.memoryRejectLogPermit.getAsBoolean()) {
                 LOG.warn("Rejected request due to low free memory, method={}, path={}, " +
-                         "presumableFreeMemMB={}, recheckedFreeMemMB={}, gcTriggered={}, " +
-                         "minFreeMemoryMB={}",
+                         "presumableFreeMemMB={}, minFreeMemoryMB={}",
                          context.getMethod(), context.getUriInfo().getPath(),
-                         presumableFreeMem, recheckedFreeMem, gcTriggered,
-                         minFreeMemory);
+                         presumableFreeMem, minFreeMemory);
             }
             throw new ServiceUnavailableException(String.format(
                     "The server available memory %s(MB) is below than " +
