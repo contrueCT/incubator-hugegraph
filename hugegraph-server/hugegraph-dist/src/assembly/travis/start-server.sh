@@ -86,5 +86,14 @@ if [ -n "$JACOCO_PORT" ]; then
     JACOCO_OPTION="-javaagent:${JACOCO_JAR}=includes=*,port=${JACOCO_PORT},destfile=jacoco-it.exec,output=tcpserver"
 fi
 
+SERVER_JAVA_OPTIONS="${SERVER_JAVA_OPTIONS:-}"
+if [ -n "$SERVER_JAVA_OPTIONS" ]; then
+    if [ -n "$JACOCO_OPTION" ]; then
+        JACOCO_OPTION="${JACOCO_OPTION} ${SERVER_JAVA_OPTIONS}"
+    else
+        JACOCO_OPTION="${SERVER_JAVA_OPTIONS}"
+    fi
+fi
+
 echo -e "pa" | $BIN/init-store.sh
 $BIN/start-hugegraph.sh -j "$JACOCO_OPTION" -t 60

@@ -106,13 +106,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-15-intel, macos-15 ]
+        include:
+          - os: macos-15-intel
+            server_java_options: ''
+          - os: macos-15
+            server_java_options: '-Xms512m -Xmx2g'
     env:
       USE_STAGE: 'false' # Whether to include the stage repository.
       TRAVIS_DIR: hugegraph-server/hugegraph-dist/src/assembly/travis
       REPORT_DIR: target/site/jacoco
       BACKEND: rocksdb
       JAVA_VERSION: '11'
+      SERVER_JAVA_OPTIONS: ${{ matrix.server_java_options }}
 
     steps:
       - name: Checkout
