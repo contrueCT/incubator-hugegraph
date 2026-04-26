@@ -102,7 +102,11 @@ jobs:
           file: ${{ env.REPORT_DIR }}/*.xml
 
   build-server-macos-rocksdb:
-    runs-on: macos-15-intel
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ macos-15-intel, macos-15 ]
     env:
       USE_STAGE: 'false' # Whether to include the stage repository.
       TRAVIS_DIR: hugegraph-server/hugegraph-dist/src/assembly/travis
