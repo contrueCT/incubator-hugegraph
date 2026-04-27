@@ -7160,6 +7160,18 @@ public class EdgeCoreTest extends BaseCoreTest {
         Assert.assertEquals(1, matchEdges.size());
         Assert.assertEquals(1, (int) matchEdges.get(0).value("id"));
 
+        List<Edge> hasNeqTrueEdges = graph.traversal().E()
+                                          .has("arrested", P.neq(true))
+                                          .toList();
+        Assert.assertEquals(1, hasNeqTrueEdges.size());
+        Assert.assertEquals(1, (int) hasNeqTrueEdges.get(0).value("id"));
+
+        List<Edge> hasNeqFalseEdges = graph.traversal().E()
+                                           .has("arrested", P.neq(false))
+                                           .toList();
+        Assert.assertEquals(1, hasNeqFalseEdges.size());
+        Assert.assertEquals(2, (int) hasNeqFalseEdges.get(0).value("id"));
+
         List<Edge> hasLteFalseEdges = graph.traversal().E()
                                            .has("arrested", P.lte(false))
                                            .toList();
@@ -7256,6 +7268,12 @@ public class EdgeCoreTest extends BaseCoreTest {
                                          .toList();
         Assert.assertEquals(1, lteFalseEdges.size());
         Assert.assertEquals(1, (int) lteFalseEdges.get(0).value("id"));
+
+        List<Edge> neqTrueEdges = graph.traversal().E()
+                                       .has("hurt", P.neq(true))
+                                       .toList();
+        Assert.assertEquals(1, neqTrueEdges.size());
+        Assert.assertEquals(1, (int) neqTrueEdges.get(0).value("id"));
     }
 
     @Test

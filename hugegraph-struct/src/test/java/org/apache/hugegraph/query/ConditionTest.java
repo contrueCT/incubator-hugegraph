@@ -46,5 +46,11 @@ public class ConditionTest {
                 () -> Condition.lt(HugeKeys.ID, true).test(1));
         Assert.assertEquals("Can't compare between 1(Integer) and true(Boolean)",
                             exception.getMessage());
+
+        exception = Assert.assertThrows(IllegalArgumentException.class,
+                                        () -> Condition.lt(HugeKeys.ID, true)
+                                                       .test((Object) null));
+        Assert.assertEquals("Can't compare between null(null) and true(Boolean)",
+                            exception.getMessage());
     }
 }

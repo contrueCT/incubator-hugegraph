@@ -317,6 +317,12 @@ public class ConditionTest extends BaseUnitTest {
             String err = "Can't compare between 1(Integer) and true(Boolean)";
             Assert.assertEquals(err, e.getMessage());
         });
+        Assert.assertThrows(IllegalArgumentException.class, () -> {
+            Condition.lt(HugeKeys.ID, true).test((Object) null);
+        }, e -> {
+            String err = "Can't compare between null(null) and true(Boolean)";
+            Assert.assertEquals(err, e.getMessage());
+        });
     }
 
     @Test

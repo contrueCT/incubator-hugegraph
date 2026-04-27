@@ -6471,6 +6471,34 @@ public class VertexCoreTest extends BaseCoreTest {
     }
 
     @Test
+    public void testQueryVertexByBooleanNeqPredicate() {
+        HugeGraph graph = graph();
+        graph.schema().indexLabel("languageByDynamic").onV("language")
+             .secondary().by("dynamic").create();
+
+        graph.addVertex(T.label, "language", "name", "java",
+                        "dynamic", true);
+        graph.addVertex(T.label, "language", "name", "rust",
+                        "dynamic", false);
+        graph.addVertex(T.label, "language", "name", "c");
+        this.commitTx();
+
+        List<Vertex> neqTrueVertices = graph.traversal().V()
+                                             .hasLabel("language")
+                                             .has("dynamic", P.neq(true))
+                                             .toList();
+        Assert.assertEquals(1, neqTrueVertices.size());
+        Assert.assertEquals("rust", neqTrueVertices.get(0).value("name"));
+
+        List<Vertex> neqFalseVertices = graph.traversal().V()
+                                              .hasLabel("language")
+                                              .has("dynamic", P.neq(false))
+                                              .toList();
+        Assert.assertEquals(1, neqFalseVertices.size());
+        Assert.assertEquals("java", neqFalseVertices.get(0).value("name"));
+    }
+
+    @Test
     public void testQueryVertexBeforeAfterUpdateMultiPropertyWithIndex() {
         HugeGraph graph = graph();
         initPersonIndex(true);

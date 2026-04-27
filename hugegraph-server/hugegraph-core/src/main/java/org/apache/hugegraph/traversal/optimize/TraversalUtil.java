@@ -501,7 +501,7 @@ public final class TraversalUtil {
             case eq:
                 return Condition.eq(key, value);
             case neq:
-                return Condition.neq(key, value);
+                return Condition.eq(key, !value);
             case gt:
                 return value ? Condition.in(key, ImmutableList.of()) :
                        Condition.eq(key, true);

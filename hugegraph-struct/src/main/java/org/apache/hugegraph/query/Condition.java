@@ -475,16 +475,14 @@ public abstract class Condition {
         }
 
         private static int compareBoolean(Object first, Boolean second) {
-            if (first == null) {
-                first = false;
-            }
             if (first instanceof Boolean) {
                 return Boolean.compare((Boolean) first, second);
             }
 
             throw new IllegalArgumentException(String.format(
                     "Can't compare between %s(%s) and %s(%s)",
-                    first, first.getClass().getSimpleName(),
+                    first, first == null ? null :
+                           first.getClass().getSimpleName(),
                     second, second.getClass().getSimpleName()));
         }
 
