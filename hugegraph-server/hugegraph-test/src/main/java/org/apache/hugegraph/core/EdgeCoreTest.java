@@ -7221,11 +7221,11 @@ public class EdgeCoreTest extends BaseCoreTest {
         louise.addEdge("strike", sean, "id", 1,
                        "timestamp", current, "place", "park",
                        "tool", "shovel", "reason", "jeer",
-                       "hurt", false);
+                       "hurt", false, "arrested", false);
         louise.addEdge("strike", sean, "id", 2,
                        "timestamp", current + 1, "place", "street",
                        "tool", "shovel", "reason", "jeer",
-                       "hurt", true);
+                       "hurt", true, "arrested", true);
         louise.addEdge("strike", sean, "id", 3,
                        "timestamp", current + 2, "place", "mall",
                        "tool", "shovel", "reason", "jeer",
