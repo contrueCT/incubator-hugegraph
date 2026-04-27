@@ -7228,7 +7228,8 @@ public class EdgeCoreTest extends BaseCoreTest {
                        "hurt", true);
         louise.addEdge("strike", sean, "id", 3,
                        "timestamp", current + 2, "place", "mall",
-                       "tool", "shovel", "reason", "jeer");
+                       "tool", "shovel", "reason", "jeer",
+                       "arrested", false);
 
         List<Edge> gteFalseEdges = graph.traversal().E()
                                         .has("hurt", P.gte(false))
