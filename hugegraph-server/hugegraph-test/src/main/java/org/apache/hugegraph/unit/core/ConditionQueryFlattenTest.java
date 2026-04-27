@@ -293,11 +293,28 @@ public class ConditionQueryFlattenTest extends BaseUnitTest {
         Id key = IdGenerator.of("c1");
 
         ConditionQuery query = new ConditionQuery(HugeType.VERTEX);
-        query.query(Condition.gt(key, false));
-        query.query(Condition.lt(key, true));
+        query.query(Condition.gt(key, false).and(Condition.lt(key, true)));
 
         List<ConditionQuery> queries = ConditionQueryFlatten.flatten(query);
         Assert.assertEquals(0, queries.size());
+    }
+
+    @Test
+    public void testFlattenWithConflictingNumericRangeKeepsQuery() {
+        Id key = IdGenerator.of("c1");
+
+        Condition gt = Condition.gt(key, 10);
+        Condition eq = Condition.eq(key, 9);
+
+        ConditionQuery query = new ConditionQuery(HugeType.VERTEX);
+        query.query(gt);
+        query.query(eq);
+
+        List<ConditionQuery> queries = ConditionQueryFlatten.flatten(query);
+        Assert.assertEquals(1, queries.size());
+
+        Collection<Condition> actual = queries.iterator().next().conditions();
+        Assert.assertEquals(ImmutableList.of(gt, eq), actual);
     }
 }
 

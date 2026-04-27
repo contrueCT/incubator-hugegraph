@@ -7207,6 +7207,57 @@ public class EdgeCoreTest extends BaseCoreTest {
     }
 
     @Test
+    public void testQueryEdgeByBooleanRangePredicateWithoutNullableProperty() {
+        HugeGraph graph = graph();
+        initStrikeIndex();
+        graph.schema().indexLabel("strikeByHurt").onE("strike").secondary()
+             .by("hurt").create();
+
+        Vertex louise = graph.addVertex(T.label, "person", "name", "Louise",
+                                        "city", "Beijing", "age", 21);
+        Vertex sean = graph.addVertex(T.label, "person", "name", "Sean",
+                                      "city", "Beijing", "age", 23);
+        long current = System.currentTimeMillis();
+        louise.addEdge("strike", sean, "id", 1,
+                       "timestamp", current, "place", "park",
+                       "tool", "shovel", "reason", "jeer",
+                       "hurt", false);
+        louise.addEdge("strike", sean, "id", 2,
+                       "timestamp", current + 1, "place", "street",
+                       "tool", "shovel", "reason", "jeer",
+                       "hurt", true);
+        louise.addEdge("strike", sean, "id", 3,
+                       "timestamp", current + 2, "place", "mall",
+                       "tool", "shovel", "reason", "jeer");
+
+        List<Edge> gteFalseEdges = graph.traversal().E()
+                                        .has("hurt", P.gte(false))
+                                        .toList();
+        Assert.assertEquals(2, gteFalseEdges.size());
+        Set<Integer> gteFalseIds = new HashSet<>();
+        for (Edge edge : gteFalseEdges) {
+            gteFalseIds.add(edge.value("id"));
+        }
+        Assert.assertEquals(ImmutableSet.of(1, 2), gteFalseIds);
+
+        List<Edge> lteTrueEdges = graph.traversal().E()
+                                        .has("hurt", P.lte(true))
+                                        .toList();
+        Assert.assertEquals(2, lteTrueEdges.size());
+        Set<Integer> lteTrueIds = new HashSet<>();
+        for (Edge edge : lteTrueEdges) {
+            lteTrueIds.add(edge.value("id"));
+        }
+        Assert.assertEquals(ImmutableSet.of(1, 2), lteTrueIds);
+
+        List<Edge> lteFalseEdges = graph.traversal().E()
+                                         .has("hurt", P.lte(false))
+                                         .toList();
+        Assert.assertEquals(1, lteFalseEdges.size());
+        Assert.assertEquals(1, (int) lteFalseEdges.get(0).value("id"));
+    }
+
+    @Test
     public void testQueryEdgeByPage() {
         Assume.assumeTrue("Not support paging",
                           storeFeatures().supportsQueryByPage());

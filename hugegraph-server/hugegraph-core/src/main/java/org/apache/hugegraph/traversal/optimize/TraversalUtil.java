@@ -503,25 +503,20 @@ public final class TraversalUtil {
             case neq:
                 return Condition.neq(key, value);
             case gt:
-                return value ? impossibleBooleanCondition(key) :
+                return value ? Condition.in(key, ImmutableList.of()) :
                        Condition.eq(key, true);
             case gte:
                 return value ? Condition.eq(key, true) :
                        Condition.in(key, ImmutableList.of(false, true));
             case lt:
                 return value ? Condition.eq(key, false) :
-                       impossibleBooleanCondition(key);
+                       Condition.in(key, ImmutableList.of());
             case lte:
                 return value ? Condition.in(key, ImmutableList.of(false, true)) :
                        Condition.eq(key, false);
             default:
                 throw new AssertionError(compare);
         }
-    }
-
-    private static Condition impossibleBooleanCondition(Id key) {
-        return Condition.and(Condition.eq(key, false),
-                             Condition.eq(key, true));
     }
 
     private static Condition convRelationType2Relation(HugeGraph graph,
