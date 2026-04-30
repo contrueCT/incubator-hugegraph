@@ -6472,6 +6472,9 @@ public class VertexCoreTest extends BaseCoreTest {
 
     @Test
     public void testQueryVertexByBooleanNeqPredicate() {
+        Assume.assumeTrue("skip this test for hstore",
+                          !Objects.equals("hstore", System.getProperty("backend")));
+
         HugeGraph graph = graph();
         graph.schema().indexLabel("languageByDynamic").onV("language")
              .secondary().by("dynamic").create();
